@@ -1,5 +1,5 @@
 import { env } from "cloudflare:workers";
-import { getChatGPTUser } from "@/app/chatgpt-auth";
+import { getCurrentUser } from "@/lib/current-user";
 import { ensureMember } from "@/lib/members";
 
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
@@ -11,7 +11,7 @@ const allowedTypes: Record<string, string> = {
 };
 
 export async function POST(request: Request) {
-  const user = await getChatGPTUser();
+  const user = await getCurrentUser();
   if (!user) return Response.json({ error: "请先登录后再上传图片" }, { status: 401 });
   const member = await ensureMember(user);
   if (member.status === "suspended") {

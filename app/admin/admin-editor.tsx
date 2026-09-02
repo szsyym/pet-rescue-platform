@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { ArrowLeft, CalendarDays, CheckCircle2, Eye, EyeOff, LayoutDashboard, MessageSquare, PawPrint, Save, Trash2, Type, Upload, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -222,7 +223,7 @@ export default function AdminEditor({
             <div><h1 className="font-bold">伴宠公益 · 内容后台</h1><p className="text-xs text-[#71858a]">管理员：{adminName}</p></div>
           </div>
           <div className="flex gap-2">
-            <Button asChild variant="outline" className="rounded-full"><a href="/" target="_blank"><Eye className="mr-2 size-4" />查看网站</a></Button>
+            <Button asChild variant="outline" className="rounded-full"><Link href="/" target="_blank"><Eye className="mr-2 size-4" />查看网站</Link></Button>
             <Button onClick={save} disabled={saving} className="rounded-full bg-[#008f91] px-6 hover:bg-[#007b7d]"><Save className="mr-2 size-4" />{saving ? "保存中…" : "保存全部"}</Button>
           </div>
         </div>
@@ -230,7 +231,7 @@ export default function AdminEditor({
       <div className="mx-auto max-w-[1380px] px-5 py-8">
         <Tabs defaultValue="basic" className="grid gap-7 lg:grid-cols-[220px_1fr]">
           <aside>
-            <a href="/" className="mb-5 flex items-center gap-2 text-sm font-medium text-[#557178] hover:text-[#008f91]"><ArrowLeft className="size-4" />返回前台</a>
+            <Link href="/" className="mb-5 flex items-center gap-2 text-sm font-medium text-[#557178] hover:text-[#008f91]"><ArrowLeft className="size-4" />返回前台</Link>
             <TabsList className="flex h-auto w-full flex-col items-stretch gap-1 rounded-2xl bg-white p-2 shadow-sm">
               <TabsTrigger value="basic" className="justify-start rounded-xl px-4 py-3">品牌与导航</TabsTrigger>
               <TabsTrigger value="home" className="justify-start rounded-xl px-4 py-3">首页首屏</TabsTrigger>

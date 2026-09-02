@@ -1,11 +1,11 @@
 import { and, count, eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { activities, activityMembers } from "@/db/schema";
-import { getChatGPTUser } from "@/app/chatgpt-auth";
+import { getCurrentUser } from "@/lib/current-user";
 import { ensureMember } from "@/lib/members";
 
 export async function POST(_: Request, context: { params: Promise<{ id: string }> }) {
-  const user = await getChatGPTUser();
+  const user = await getCurrentUser();
   if (!user) return Response.json({ error: "请先登录后再报名" }, { status: 401 });
   const member = await ensureMember(user);
   if (member.status === "suspended") return Response.json({ error: "账号已暂停，暂时无法报名" }, { status: 403 });

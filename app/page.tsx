@@ -1,15 +1,15 @@
-import { chatGPTSignInPath, getChatGPTUser } from "./chatgpt-auth";
 import CommunityHome from "./community-home";
 import { getDb } from "@/db";
 import { siteContent } from "@/db/schema";
 import { mergeSiteContent } from "@/lib/site-content";
 import { isAdminEmail } from "@/lib/admin-auth";
 import { ensureMember } from "@/lib/members";
+import { getCurrentUser } from "@/lib/current-user";
 
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
-  const user = await getChatGPTUser();
+  const user = await getCurrentUser();
   if (user) {
     try {
       await ensureMember(user);
@@ -26,9 +26,8 @@ export default async function Home() {
   return (
     <CommunityHome
       user={user ? { displayName: user.displayName, email: user.email } : null}
-      signInPath={chatGPTSignInPath("/")}
       content={content}
-      isAdmin={Boolean(user && isAdminEmail(user.email))}
+      isAdmin={Boolean(user?.source === "chatgpt" && isAdminEmail(user.email))}
     />
   );
 }

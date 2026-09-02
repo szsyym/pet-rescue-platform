@@ -1,7 +1,7 @@
 import { desc, eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { posts } from "@/db/schema";
-import { getChatGPTUser } from "@/app/chatgpt-auth";
+import { getCurrentUser } from "@/lib/current-user";
 import { ensureMember } from "@/lib/members";
 
 export async function GET() {
@@ -14,7 +14,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const user = await getChatGPTUser();
+  const user = await getCurrentUser();
   if (!user) return Response.json({ error: "请先登录后再发布" }, { status: 401 });
   const member = await ensureMember(user);
   if (member.status === "suspended") return Response.json({ error: "账号已暂停，暂时无法发布" }, { status: 403 });

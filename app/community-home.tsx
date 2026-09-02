@@ -5,6 +5,7 @@ import {
   CalendarDays,
   ChevronRight,
   Heart,
+  LogOut,
   MapPin,
   Menu,
   MessageCircle,
@@ -18,7 +19,7 @@ import {
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
@@ -75,7 +76,7 @@ function buildFeaturedActivities(content: SiteContent): Activity[] {
   }));
 }
 
-export default function CommunityHome({ user, signInPath, content, isAdmin }: { user: User; signInPath: string; content: SiteContent; isAdmin: boolean }) {
+export default function CommunityHome({ user, content, isAdmin }: { user: User; content: SiteContent; isAdmin: boolean }) {
   const featuredPosts = useMemo(() => buildFeaturedPosts(content), [content]);
   const featuredActivities = useMemo(() => buildFeaturedActivities(content), [content]);
   const t = (key: string) => contentValue(content, key);
@@ -88,6 +89,9 @@ export default function CommunityHome({ user, signInPath, content, isAdmin }: { 
   const [filter, setFilter] = useState("全部");
   const [liked, setLiked] = useState<Set<number | string>>(new Set());
   const [uploading, setUploading] = useState(false);
+  const [authOpen, setAuthOpen] = useState(false);
+  const [authMode, setAuthMode] = useState<"login" | "register">("login");
+  const [authSubmitting, setAuthSubmitting] = useState(false);
 
   useEffect(() => {
     Promise.all([
@@ -106,10 +110,46 @@ export default function CommunityHome({ user, signInPath, content, isAdmin }: { 
 
   function requireMember(action: () => void) {
     if (!user) {
-      window.location.href = signInPath;
+      setAuthMode("login");
+      setAuthOpen(true);
       return;
     }
     action();
+  }
+
+  function openAuth(mode: "login" | "register") {
+    setAuthMode(mode);
+    setAuthOpen(true);
+  }
+
+  async function submitAuth(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    setAuthSubmitting(true);
+    const response = await fetch(`/api/auth/${authMode}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: form.get("email"),
+        password: form.get("password"),
+        displayName: form.get("displayName"),
+      }),
+    });
+    const data = await response.json();
+    setAuthSubmitting(false);
+    if (!response.ok) return toast.error(data.error ?? "操作失败，请稍后再试");
+    if (data.confirmationRequired) {
+      toast.success("验证邮件已发送，请打开邮箱完成验证后再登录");
+      setAuthMode("login");
+      return;
+    }
+    toast.success(authMode === "login" ? "登录成功" : "注册成功");
+    window.location.reload();
+  }
+
+  async function logout() {
+    await fetch("/api/auth/logout", { method: "POST" });
+    window.location.reload();
   }
 
   async function submitPost(event: FormEvent<HTMLFormElement>) {
@@ -189,16 +229,17 @@ export default function CommunityHome({ user, signInPath, content, isAdmin }: { 
           <div className="hidden items-center gap-3 lg:flex">
             <Button variant="ghost" size="icon" className="rounded-full"><Search className="size-5" /></Button>
             {user ? (
-              <div className="flex items-center gap-3 rounded-full bg-[#edf8f7] py-1.5 pl-2 pr-4 text-sm font-medium">
+              <div className="flex items-center gap-2 rounded-full bg-[#edf8f7] py-1.5 pl-2 pr-2 text-sm font-medium">
                 <span className="grid size-8 place-items-center rounded-full bg-[#0a9f9c] text-white">{user.displayName.slice(0, 1).toUpperCase()}</span>
                 {user.displayName}
+                <button onClick={logout} className="grid size-8 place-items-center rounded-full text-[#58747a] hover:bg-white hover:text-[#008f91]" aria-label="退出登录"><LogOut className="size-4" /></button>
               </div>
             ) : (
-              <Button asChild variant="ghost"><a href={signInPath} target="_top">{t("navLogin")}</a></Button>
+              <Button variant="ghost" onClick={() => openAuth("login")}>{t("navLogin")}</Button>
             )}
             {isAdmin && <Button asChild variant="outline" className="rounded-full"><a href="/admin">{t("navAdmin")}</a></Button>}
-            <Button asChild className="rounded-full bg-[#008f91] px-6 shadow-lg shadow-teal-700/15 hover:bg-[#007b7d]">
-              <a href={user ? "#community" : signInPath} target={user ? undefined : "_top"}>{user ? t("navPublish") : t("navRegister")}</a>
+            <Button onClick={() => user ? document.querySelector("#community")?.scrollIntoView({ behavior: "smooth" }) : openAuth("register")} className="rounded-full bg-[#008f91] px-6 shadow-lg shadow-teal-700/15 hover:bg-[#007b7d]">
+              {user ? t("navPublish") : t("navRegister")}
             </Button>
           </div>
           <button className="lg:hidden" onClick={() => setMobileOpen(!mobileOpen)} aria-label="打开导航">
@@ -211,7 +252,7 @@ export default function CommunityHome({ user, signInPath, content, isAdmin }: { 
               {enabled("communityEnabled") && <a href="#community" onClick={() => setMobileOpen(false)}>{t("navCommunity")}</a>}
               {enabled("activitiesEnabled") && <a href="#activities" onClick={() => setMobileOpen(false)}>{t("navActivities")}</a>}
               {enabled("aboutEnabled") && <a href="#about" onClick={() => setMobileOpen(false)}>{t("navAbout")}</a>}
-              <a className="text-[#008f91]" href={signInPath} target="_top">{user ? user.displayName : `${t("navLogin")} / ${t("navRegister")}`}</a>
+              {user ? <button className="text-left text-[#008f91]" onClick={logout}>{user.displayName} · 退出登录</button> : <button className="text-left text-[#008f91]" onClick={() => openAuth("login")}>{t("navLogin")} / {t("navRegister")}</button>}
               {isAdmin && <a className="font-semibold text-[#008f91]" href="/admin">{t("navAdmin")}</a>}
             </div>
           </nav>
@@ -310,7 +351,7 @@ export default function CommunityHome({ user, signInPath, content, isAdmin }: { 
                       <span className="max-w-36 truncate font-medium">{post.authorName}</span>
                     </div>
                     <div className="flex items-center gap-3 text-[#7a8e93]">
-                      <button onClick={() => setLiked((current) => { const next = new Set(current); next.has(post.id) ? next.delete(post.id) : next.add(post.id); return next; })} className={liked.has(post.id) ? "text-rose-500" : ""} aria-label="点赞">
+                      <button onClick={() => setLiked((current) => { const next = new Set(current); if (next.has(post.id)) next.delete(post.id); else next.add(post.id); return next; })} className={liked.has(post.id) ? "text-rose-500" : ""} aria-label="点赞">
                         <Heart className={`size-5 ${liked.has(post.id) ? "fill-current" : ""}`} />
                       </button>
                       <MessageCircle className="size-5" />
@@ -398,8 +439,8 @@ export default function CommunityHome({ user, signInPath, content, isAdmin }: { 
           <span className="grid size-14 place-items-center rounded-2xl bg-white text-[#008f91] shadow-lg"><Heart className="size-7 fill-[#a8e5dc]" /></span>
           <h2 className="mt-6 text-3xl font-bold">{t("ctaTitle")}</h2>
           <p className="mt-3 text-[#60777d]">{t("ctaDescription")}</p>
-          <Button asChild size="lg" className="mt-7 rounded-full bg-[#008f91] px-8 hover:bg-[#007b7d]">
-            <a href={user ? "#community" : signInPath} target={user ? undefined : "_top"}>{user ? t("ctaMemberButton") : t("ctaGuestButton")}<ChevronRight className="ml-1 size-5" /></a>
+          <Button onClick={() => user ? document.querySelector("#community")?.scrollIntoView({ behavior: "smooth" }) : openAuth("register")} size="lg" className="mt-7 rounded-full bg-[#008f91] px-8 hover:bg-[#007b7d]">
+            {user ? t("ctaMemberButton") : t("ctaGuestButton")}<ChevronRight className="ml-1 size-5" />
           </Button>
         </div>
       </section>}
@@ -426,6 +467,26 @@ export default function CommunityHome({ user, signInPath, content, isAdmin }: { 
             </select>
             <Button type="submit" disabled={uploading} className="w-full bg-[#008f91] hover:bg-[#007b7d]">{uploading ? "正在上传…" : "提交审核"}</Button>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={authOpen} onOpenChange={setAuthOpen}>
+        <DialogContent className="max-w-md rounded-[1.5rem]">
+          <DialogHeader>
+            <DialogTitle>{authMode === "login" ? "会员登录" : "免费注册会员"}</DialogTitle>
+            <DialogDescription>{authMode === "login" ? "登录后可以发布救助动态、发起活动和报名参与。" : "加入伴宠公益，一起帮助更多流浪动物。"}</DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-2 rounded-xl bg-[#edf7f7] p-1">
+            <button type="button" onClick={() => setAuthMode("login")} className={`rounded-lg px-4 py-2.5 text-sm font-medium ${authMode === "login" ? "bg-white text-[#087f80] shadow-sm" : "text-[#60777d]"}`}>登录</button>
+            <button type="button" onClick={() => setAuthMode("register")} className={`rounded-lg px-4 py-2.5 text-sm font-medium ${authMode === "register" ? "bg-white text-[#087f80] shadow-sm" : "text-[#60777d]"}`}>注册</button>
+          </div>
+          <form onSubmit={submitAuth} className="space-y-4">
+            {authMode === "register" && <Input name="displayName" required minLength={1} maxLength={40} autoComplete="nickname" placeholder="你的昵称" />}
+            <Input name="email" type="email" required autoComplete="email" placeholder="邮箱地址" />
+            <Input name="password" type="password" required minLength={8} autoComplete={authMode === "login" ? "current-password" : "new-password"} placeholder="密码（至少 8 位）" />
+            <Button type="submit" disabled={authSubmitting} className="w-full bg-[#008f91] hover:bg-[#007b7d]">{authSubmitting ? "请稍候…" : authMode === "login" ? "登录" : "注册并验证邮箱"}</Button>
+          </form>
+          <p className="text-center text-xs leading-5 text-[#71858b]">注册即表示你同意遵守社区规则，不发布虚假救助或交易信息。</p>
         </DialogContent>
       </Dialog>
 

@@ -1,9 +1,9 @@
 import { eq, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import { members } from "@/db/schema";
-import type { ChatGPTUser } from "@/app/chatgpt-auth";
+import type { AppUser } from "@/lib/current-user";
 
-export async function ensureMember(user: ChatGPTUser) {
+export async function ensureMember(user: AppUser) {
   const db = getDb();
   await db.insert(members).values({
     id: user.id,
