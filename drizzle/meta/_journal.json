@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1788331371950,
+      "tag": "0000_eminent_black_bolt",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1788332025793,
+      "tag": "0001_flowery_rattler",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1788332931850,
+      "tag": "0002_equal_payback",
+      "breakpoints": true
+    }
+  ]
+}
