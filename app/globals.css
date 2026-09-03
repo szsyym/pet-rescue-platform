@@ -108,3 +108,5 @@ html {
   background: #a9e7df;
   color: #103f43;
 }
+html body { top: 0 !important; }
+.goog-te-banner-frame, .goog-te-gadget, iframe.skiptranslate { display: none !important; }

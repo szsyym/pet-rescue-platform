@@ -28,6 +28,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast, Toaster } from "sonner";
 import { DEFAULT_SITE_CONTENT, type SiteContent } from "@/lib/site-content";
+import { LanguageSwitcher } from "@/components/language-switcher";
 
 type User = { displayName: string; email: string } | null;
 type Membership = { status: "pending_payment" | "active" | "refund_requested" | "refunded_closed"; fee_cents: number; phone_last4?: string | null } | null;
@@ -285,6 +286,7 @@ export default function CommunityHome({ user, content, isAdmin }: { user: User; 
             {enabled("aboutEnabled") && <a className="transition hover:text-[#008f91]" href="#about">{t("navAbout")}</a>}
           </nav>
           <div className="hidden items-center gap-3 lg:flex">
+            <LanguageSwitcher />
             <Button variant="ghost" size="icon" className="rounded-full"><Search className="size-5" /></Button>
             {user ? (
               <div className="flex items-center gap-2">
@@ -310,6 +312,7 @@ export default function CommunityHome({ user, content, isAdmin }: { user: User; 
         {mobileOpen && (
           <nav className="border-t bg-white px-6 py-5 lg:hidden">
             <div className="flex flex-col gap-4 font-medium">
+              <div className="w-fit"><LanguageSwitcher /></div>
               {enabled("communityEnabled") && <a href="#community" onClick={() => setMobileOpen(false)}>{t("navCommunity")}</a>}
               {enabled("activitiesEnabled") && <a href="#activities" onClick={() => setMobileOpen(false)}>{t("navActivities")}</a>}
               {enabled("aboutEnabled") && <a href="#about" onClick={() => setMobileOpen(false)}>{t("navAbout")}</a>}
