@@ -229,8 +229,8 @@ export default function AdminEditor({
         </div>
       </header>
       <div className="mx-auto max-w-[1380px] px-5 py-8">
-        <Tabs defaultValue="basic" className="grid gap-7 lg:grid-cols-[220px_1fr]">
-          <aside>
+        <Tabs defaultValue="basic" orientation="vertical" className="grid gap-7 lg:grid-cols-[220px_1fr]">
+          <aside className="self-start lg:sticky lg:top-24">
             <Link href="/" className="mb-5 flex items-center gap-2 text-sm font-medium text-[#557178] hover:text-[#008f91]"><ArrowLeft className="size-4" />返回前台</Link>
             <TabsList className="flex h-auto w-full flex-col items-stretch gap-1 rounded-2xl bg-white p-2 shadow-sm">
               <TabsTrigger value="basic" className="justify-start rounded-xl px-4 py-3">品牌与导航</TabsTrigger>
