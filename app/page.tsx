@@ -1,6 +1,5 @@
 import CommunityHome from "./community-home";
-import { getDb } from "@/db";
-import { siteContent } from "@/db/schema";
+import { adminJson } from "@/lib/supabase-data";
 import { mergeSiteContent } from "@/lib/site-content";
 import { isAdminEmail } from "@/lib/admin-auth";
 import { ensureMember } from "@/lib/members";
@@ -19,7 +18,7 @@ export default async function Home() {
   }
   let content = mergeSiteContent([]);
   try {
-    content = mergeSiteContent(await getDb().select().from(siteContent));
+    content = mergeSiteContent(await adminJson<{key:string;value:string}[]>("/rest/v1/site_content?select=key,value"));
   } catch {
     // The defaults keep the site available before the first CMS migration.
   }
@@ -27,7 +26,7 @@ export default async function Home() {
     <CommunityHome
       user={user ? { displayName: user.displayName, email: user.email } : null}
       content={content}
-      isAdmin={Boolean(user?.source === "chatgpt" && isAdminEmail(user.email))}
+      isAdmin={Boolean(user && isAdminEmail(user.email))}
     />
   );
 }

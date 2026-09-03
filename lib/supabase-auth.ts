@@ -1,4 +1,3 @@
-import { env } from "cloudflare:workers";
 import { cookies } from "next/headers";
 import type { NextResponse } from "next/server";
 import type { AppUser } from "@/lib/current-user";
@@ -13,9 +12,8 @@ type SupabaseAuthUser = {
 };
 
 export function getSupabaseConfig() {
-  const values = env as unknown as Record<string, string | undefined>;
-  const url = values.SUPABASE_URL;
-  const publishableKey = values.SUPABASE_PUBLISHABLE_KEY;
+  const url = process.env.SUPABASE_URL;
+  const publishableKey = process.env.SUPABASE_PUBLISHABLE_KEY;
   if (!url || !publishableKey) throw new Error("Supabase is not configured");
   return { url: url.replace(/\/$/, ""), publishableKey };
 }

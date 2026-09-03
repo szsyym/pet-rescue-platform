@@ -1,4 +1,3 @@
-import { getChatGPTUser } from "@/app/chatgpt-auth";
 import { getSupabaseUser } from "@/lib/supabase-auth";
 
 export type AppUser = {
@@ -10,7 +9,5 @@ export type AppUser = {
 };
 
 export async function getCurrentUser(): Promise<AppUser | null> {
-  const chatGPTUser = await getChatGPTUser();
-  if (chatGPTUser) return { ...chatGPTUser, source: "chatgpt" };
   return getSupabaseUser();
 }

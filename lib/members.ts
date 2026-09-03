@@ -1,22 +1,16 @@
-import { eq, sql } from "drizzle-orm";
-import { getDb } from "@/db";
-import { members } from "@/db/schema";
 import type { AppUser } from "@/lib/current-user";
+import { adminJson, mapMember } from "@/lib/supabase-data";
 
 export async function ensureMember(user: AppUser) {
-  const db = getDb();
-  await db.insert(members).values({
-    id: user.id,
+  const rows = await adminJson<Record<string, unknown>[]>("/rest/v1/community_members?on_conflict=user_id", {
+    method: "POST",
+    headers: { Prefer: "resolution=merge-duplicates,return=representation" },
+    body: JSON.stringify({
+    user_id: user.id,
     email: user.email,
-    displayName: user.displayName,
-  }).onConflictDoUpdate({
-    target: members.id,
-    set: {
-      email: user.email,
-      displayName: user.displayName,
-      lastSeenAt: sql`CURRENT_TIMESTAMP`,
-    },
+    display_name: user.displayName,
+    last_seen_at: new Date().toISOString(),
+    }),
   });
-  const [member] = await db.select().from(members).where(eq(members.id, user.id)).limit(1);
-  return member;
+  return mapMember(rows[0]);
 }
