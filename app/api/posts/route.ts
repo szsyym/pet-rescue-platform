@@ -1,6 +1,7 @@
 import { getCurrentUser } from "@/lib/current-user";
 import { ensureMember } from "@/lib/members";
 import { hasActiveSupabaseMembership } from "@/lib/supabase-auth";
+import { isAdminEmail } from "@/lib/admin-auth";
 import { adminJson, mapPost } from "@/lib/supabase-data";
 
 export async function GET() {
@@ -21,8 +22,9 @@ export async function GET() {
 export async function POST(request: Request) {
   const user = await getCurrentUser();
   if (!user) return Response.json({ error: "请先登录后再发布" }, { status: 401 });
-  if (!await hasActiveSupabaseMembership(user)) return Response.json({ error: "请先支付 398 元开通会员" }, { status: 403 });
-  const member = await ensureMember(user); if (member.status === "suspended") return Response.json({ error: "账号已暂停，暂时无法发布" }, { status: 403 });
+  const isAdmin = isAdminEmail(user.email);
+  if (!isAdmin && !await hasActiveSupabaseMembership(user)) return Response.json({ error: "请先支付 398 元开通会员" }, { status: 403 });
+  if (!isAdmin) { const member = await ensureMember(user); if (member.status === "suspended") return Response.json({ error: "账号已暂停，暂时无法发布" }, { status: 403 }); }
   const body = await request.json() as Record<string,unknown>;
   const title = String(body.title ?? "").trim(); const content = String(body.content ?? "").trim();
   if (!title || !content) return Response.json({ error: "请填写标题和内容" }, { status: 400 });
@@ -30,8 +32,8 @@ export async function POST(request: Request) {
   const fontSize = ["sm","base","lg","xl"].includes(String(body.fontSize)) ? String(body.fontSize) : "base";
   const lineHeight = ["compact","normal","relaxed","loose"].includes(String(body.lineHeight)) ? String(body.lineHeight) : "normal";
   const textColor = /^#[0-9a-fA-F]{6}$/.test(String(body.textColor)) ? String(body.textColor) : "#61777d";
-  const rows = await adminJson<Record<string,unknown>[]>("/rest/v1/community_posts", { method:"POST", headers:{Prefer:"return=representation"}, body:JSON.stringify({author_id:user.id,author_name:user.displayName,title:title.slice(0,80),content:content.slice(0,6000),image_url:imageUrls[0] ?? null,category:String(body.category ?? "救助日记").slice(0,20),font_size:fontSize,line_height:lineHeight,text_color:textColor}) });
+  const rows = await adminJson<Record<string,unknown>[]>("/rest/v1/community_posts", { method:"POST", headers:{Prefer:"return=representation"}, body:JSON.stringify({author_id:user.id,author_name:user.displayName,title:title.slice(0,80),content:content.slice(0,6000),image_url:imageUrls[0] ?? null,category:String(body.category ?? "救助日记").slice(0,20),font_size:fontSize,line_height:lineHeight,text_color:textColor,status:isAdmin?"published":"pending"}) });
   if (imageUrls.length) await adminJson("/rest/v1/community_post_images", { method:"POST", headers:{Prefer:"return=minimal"}, body:JSON.stringify(imageUrls.map((image_url,sort_order) => ({post_id:Number(rows[0].id),image_url,sort_order}))) });
   const post = mapPost(rows[0]); post.imageUrls = imageUrls;
-  return Response.json({ post, moderation:"pending" }, { status:201 });
+  return Response.json({ post, moderation:isAdmin?"published":"pending" }, { status:201 });
 }

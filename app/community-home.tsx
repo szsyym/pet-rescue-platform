@@ -137,6 +137,7 @@ export default function CommunityHome({ user, content, isAdmin }: { user: User; 
       setAuthOpen(true);
       return;
     }
+    if (isAdmin) { action(); return; }
     if (membership?.status !== "active") {
       setMembershipOpen(true);
       return;
@@ -227,7 +228,10 @@ export default function CommunityHome({ user, content, isAdmin }: { user: User; 
     setUploading(false);
     if (!response.ok) return toast.error(data.error ?? "发布失败，请稍后再试");
     setPostOpen(false);
-    toast.success("动态已提交，管理员审核通过后会公开显示");
+    if (data.moderation === "published") {
+      setPosts((current) => [data.post, ...current]);
+      toast.success("管理员帖子已发布并立即公开");
+    } else toast.success("动态已提交，管理员审核通过后会公开显示");
   }
 
   function moveGallery(post: Post, direction: number) {
@@ -284,7 +288,7 @@ export default function CommunityHome({ user, content, isAdmin }: { user: User; 
             <Button variant="ghost" size="icon" className="rounded-full"><Search className="size-5" /></Button>
             {user ? (
               <div className="flex items-center gap-2">
-              <Button variant="outline" onClick={() => setMembershipOpen(true)} className="rounded-full border-[#acd8d5] text-[#087f80]"><CircleDollarSign className="mr-1.5 size-4" />会员中心</Button>
+              {!isAdmin && <Button variant="outline" onClick={() => setMembershipOpen(true)} className="rounded-full border-[#acd8d5] text-[#087f80]"><CircleDollarSign className="mr-1.5 size-4" />会员中心</Button>}
               <div className="flex items-center gap-2 rounded-full bg-[#edf8f7] py-1.5 pl-2 pr-2 text-sm font-medium">
                 <span className="grid size-8 place-items-center rounded-full bg-[#0a9f9c] text-white">{user.displayName.slice(0, 1).toUpperCase()}</span>
                 {user.displayName}
@@ -309,7 +313,7 @@ export default function CommunityHome({ user, content, isAdmin }: { user: User; 
               {enabled("communityEnabled") && <a href="#community" onClick={() => setMobileOpen(false)}>{t("navCommunity")}</a>}
               {enabled("activitiesEnabled") && <a href="#activities" onClick={() => setMobileOpen(false)}>{t("navActivities")}</a>}
               {enabled("aboutEnabled") && <a href="#about" onClick={() => setMobileOpen(false)}>{t("navAbout")}</a>}
-              {user ? <><button className="text-left font-semibold text-[#008f91]" onClick={() => { setMembershipOpen(true); setMobileOpen(false); }}>会员中心 · ¥398</button><button className="text-left text-[#58747a]" onClick={logout}>{user.displayName} · 退出登录</button></> : <button className="text-left text-[#008f91]" onClick={() => openAuth("login")}>{t("navLogin")} / {t("navRegister")}</button>}
+              {user ? <>{!isAdmin&&<button className="text-left font-semibold text-[#008f91]" onClick={() => { setMembershipOpen(true); setMobileOpen(false); }}>会员中心 · ¥398</button>}<button className="text-left text-[#58747a]" onClick={logout}>{user.displayName} · 退出登录</button></> : <button className="text-left text-[#008f91]" onClick={() => openAuth("login")}>{t("navLogin")} / {t("navRegister")}</button>}
               {isAdmin && <a className="font-semibold text-[#008f91]" href="/admin">{t("navAdmin")}</a>}
             </div>
           </nav>
