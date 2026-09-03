@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, CalendarDays, CheckCircle2, Eye, EyeOff, LayoutDashboard, MessageSquare, PawPrint, Save, Trash2, Type, Upload, Users } from "lucide-react";
+import { ArrowLeft, CalendarDays, CheckCircle2, Eye, EyeOff, Image as ImageIcon, LayoutDashboard, MessageSquare, PawPrint, Save, Trash2, Type, Upload, Users, Video } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -43,8 +43,7 @@ const groups: Record<string, Group[]> = {
       { key: "stat2Value", label: "指标二数值" }, { key: "stat2Label", label: "指标二名称" },
       { key: "stat3Value", label: "指标三数值" }, { key: "stat3Label", label: "指标三名称" },
     ] },
-    { title: "视频组件", description: "首页右侧视频和认证提示。", fields: [
-      { key: "videoUrl", label: "YouTube 嵌入链接", type: "url" },
+    { title: "媒体组件文案", description: "首页右侧媒体卡片的文字。媒体文件请到左侧“媒体管理”设置。", fields: [
       { key: "videoLabel", label: "视频标签" }, { key: "videoTitle", label: "视频标题" },
       { key: "trustTitle", label: "认证标题" }, { key: "trustSubtitle", label: "认证说明" },
     ] },
@@ -171,6 +170,17 @@ export default function AdminEditor({
     toast.success("图片已上传，记得保存全部");
   }
 
+  async function uploadHeroMedia(file?: File) {
+    if (!file) return;
+    setUploadingKey("heroMediaUrl");
+    const body = new FormData(); body.set("file", file);
+    const response = await fetch("/api/admin/media", {method:"POST",body});
+    const data = await response.json(); setUploadingKey(null);
+    if (!response.ok) return toast.error(data.error ?? "媒体上传失败");
+    setValues((current) => ({...current,heroMediaUrl:data.url,heroMediaType:data.mediaType}));
+    toast.success("媒体已上传，点击右上角“保存全部”即可生效");
+  }
+
   async function save() {
     setSaving(true);
     const response = await fetch("/api/admin/content", {
@@ -235,6 +245,7 @@ export default function AdminEditor({
             <TabsList className="flex h-auto w-full flex-col items-stretch gap-1 rounded-2xl bg-white p-2 shadow-sm">
               <TabsTrigger value="basic" className="justify-start rounded-xl px-4 py-3">品牌与导航</TabsTrigger>
               <TabsTrigger value="home" className="justify-start rounded-xl px-4 py-3">首页首屏</TabsTrigger>
+              <TabsTrigger value="media" className="justify-start rounded-xl px-4 py-3"><Video className="mr-2 size-4" />媒体管理</TabsTrigger>
               <TabsTrigger value="community" className="justify-start rounded-xl px-4 py-3">救助社区</TabsTrigger>
               <TabsTrigger value="activities" className="justify-start rounded-xl px-4 py-3">公益活动</TabsTrigger>
               <TabsTrigger value="about" className="justify-start rounded-xl px-4 py-3">About</TabsTrigger>
@@ -248,6 +259,21 @@ export default function AdminEditor({
           <div>
             <div className="mb-6 flex items-center gap-3"><span className="grid size-10 place-items-center rounded-xl bg-[#dff4f1] text-[#008f91]"><LayoutDashboard className="size-5" /></span><div><h2 className="text-2xl font-bold">网站内容编辑</h2><p className="text-sm text-[#6b8085]">修改后点击“保存全部”，前台刷新即可更新。</p></div></div>
             {Object.entries(groups).map(([key, items]) => <TabsContent key={key} value={key} className="mt-0">{renderGroups(items)}</TabsContent>)}
+            <TabsContent value="media" className="mt-0">
+              <section className="rounded-2xl border border-[#dce8ea] bg-white p-6 shadow-sm">
+                <div className="flex items-center gap-3"><span className="grid size-11 place-items-center rounded-xl bg-[#dff4f1] text-[#008f91]"><Video /></span><div><h2 className="text-lg font-bold">首页媒体管理</h2><p className="text-sm text-[#6b8085]">首页右侧可独立显示外部视频、上传视频或上传图片。</p></div></div>
+                <div className="mt-6 grid gap-5">
+                  <label><span className="mb-2 block text-sm font-medium">展示类型</span><select value={values.heroMediaType ?? "external"} onChange={(e)=>update("heroMediaType",e.target.value)} className="h-11 w-full rounded-lg border bg-white px-3"><option value="external">外部视频链接</option><option value="video">上传的视频</option><option value="image">上传的图片</option></select></label>
+                  <label><span className="mb-2 block text-sm font-medium">媒体地址</span><Input value={values.heroMediaUrl ?? values.videoUrl ?? ""} onChange={(e)=>update("heroMediaUrl",e.target.value)} placeholder="YouTube 嵌入链接或已上传文件地址" /></label>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <label className="flex cursor-pointer items-center justify-center rounded-xl border border-dashed border-[#9fc9ca] bg-[#f2faf9] p-5 font-medium text-[#167173] hover:bg-[#e6f6f3]"><ImageIcon className="mr-2 size-5" />上传图片<input className="hidden" type="file" accept="image/jpeg,image/png,image/webp,image/gif" disabled={uploadingKey==="heroMediaUrl"} onChange={(e)=>uploadHeroMedia(e.target.files?.[0])} /></label>
+                    <label className="flex cursor-pointer items-center justify-center rounded-xl border border-dashed border-[#9fc9ca] bg-[#f2faf9] p-5 font-medium text-[#167173] hover:bg-[#e6f6f3]"><Video className="mr-2 size-5" />{uploadingKey==="heroMediaUrl"?"上传中…":"上传视频（最大 4MB）"}<input className="hidden" type="file" accept="video/mp4,video/webm,video/quicktime" disabled={uploadingKey==="heroMediaUrl"} onChange={(e)=>uploadHeroMedia(e.target.files?.[0])} /></label>
+                  </div>
+                  <p className="rounded-lg bg-amber-50 p-3 text-xs leading-5 text-amber-800">较大的视频建议上传到视频平台后粘贴嵌入链接，可避免网页加载过慢。YouTube 请使用 /embed/ 格式链接。</p>
+                  {values.heroMediaUrl && <div className="overflow-hidden rounded-xl border bg-[#edf6f6]"><div className="aspect-video">{values.heroMediaType==="image"?<img src={values.heroMediaUrl} alt="媒体预览" className="h-full w-full object-cover"/>:values.heroMediaType==="video"?<video src={values.heroMediaUrl} controls className="h-full w-full object-cover"/>:<iframe src={values.heroMediaUrl} title="媒体预览" className="h-full w-full"/>}</div></div>}
+                </div>
+              </section>
+            </TabsContent>
             <TabsContent value="components" className="mt-0">
               <section className="rounded-2xl border border-[#dce8ea] bg-white p-6 shadow-sm">
                 <div className="flex items-center gap-3"><Type className="size-5 text-[#008f91]" /><div><h2 className="text-lg font-bold">前台组件开关</h2><p className="text-sm text-[#6b8085]">关闭后组件会从网站隐藏，内容不会被删除。</p></div></div>

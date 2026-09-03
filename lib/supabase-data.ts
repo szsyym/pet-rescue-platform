@@ -18,7 +18,7 @@ export async function adminJson<T>(path: string, init: RequestInit = {}): Promis
 }
 
 export function mapPost(row: Record<string, unknown>) {
-  return { id: Number(row.id), authorId: String(row.author_id), authorName: String(row.author_name), title: String(row.title), content: String(row.content), imageUrl: row.image_url ? String(row.image_url) : null, category: String(row.category), status: String(row.status), createdAt: String(row.created_at) };
+  return { id: Number(row.id), authorId: String(row.author_id), authorName: String(row.author_name), title: String(row.title), content: String(row.content), imageUrl: row.image_url ? String(row.image_url) : null, imageUrls: [] as string[], category: String(row.category), status: String(row.status), createdAt: String(row.created_at), fontSize: String(row.font_size ?? "base"), lineHeight: String(row.line_height ?? "normal"), textColor: String(row.text_color ?? "#61777d") };
 }
 
 export function mapActivity(row: Record<string, unknown>) {

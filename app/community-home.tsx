@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
   CalendarDays,
   CircleDollarSign,
+  ChevronLeft,
   ChevronRight,
   Heart,
   LogOut,
@@ -36,8 +37,12 @@ type Post = {
   title: string;
   content: string;
   imageUrl: string | null;
+  imageUrls: string[];
   category: string;
   createdAt: string;
+  fontSize: string;
+  lineHeight: string;
+  textColor: string;
 };
 type Activity = {
   id: number | string;
@@ -61,8 +66,10 @@ function buildFeaturedPosts(content: SiteContent): Post[] {
     title: contentValue(content, `featuredPost${i}Title`),
     content: contentValue(content, `featuredPost${i}Content`),
     imageUrl: contentValue(content, `featuredPost${i}Image`) || null,
+    imageUrls: contentValue(content, `featuredPost${i}Image`) ? [contentValue(content, `featuredPost${i}Image`)] : [],
     category: contentValue(content, `featuredPost${i}Category`),
     createdAt: contentValue(content, `featuredPost${i}Time`),
+    fontSize: "base", lineHeight: "normal", textColor: "#61777d",
   }));
 }
 
@@ -87,6 +94,8 @@ export default function CommunityHome({ user, content, isAdmin }: { user: User; 
   const [posts, setPosts] = useState<Post[]>(featuredPosts);
   const [activities, setActivities] = useState<Activity[]>(featuredActivities);
   const [postOpen, setPostOpen] = useState(false);
+  const [selectedPost, setSelectedPost] = useState<Post | null>(null);
+  const [galleryIndex, setGalleryIndex] = useState<Record<string, number>>({});
   const [activityOpen, setActivityOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [filter, setFilter] = useState("全部");
@@ -189,19 +198,17 @@ export default function CommunityHome({ user, content, isAdmin }: { user: User; 
   async function submitPost(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
-    let imageUrl = "";
-    const file = form.get("imageFile");
-    if (file instanceof File && file.size > 0) {
+    const files = form.getAll("imageFiles").filter((file): file is File => file instanceof File && file.size > 0);
+    const imageUrls: string[] = [];
+    if (files.length) {
       setUploading(true);
-      const uploadForm = new FormData();
-      uploadForm.set("file", file);
-      const uploadResponse = await fetch("/api/upload", { method: "POST", body: uploadForm });
-      const uploadData = await uploadResponse.json();
-      if (!uploadResponse.ok) {
-        setUploading(false);
-        return toast.error(uploadData.error ?? "图片上传失败");
+      for (const file of files) {
+        const uploadForm = new FormData(); uploadForm.set("file", file);
+        const uploadResponse = await fetch("/api/upload", { method: "POST", body: uploadForm });
+        const uploadData = await uploadResponse.json();
+        if (!uploadResponse.ok) { setUploading(false); return toast.error(`${file.name}：${uploadData.error ?? "上传失败"}`); }
+        imageUrls.push(uploadData.url);
       }
-      imageUrl = uploadData.url;
     }
     const response = await fetch("/api/posts", {
       method: "POST",
@@ -210,7 +217,10 @@ export default function CommunityHome({ user, content, isAdmin }: { user: User; 
         title: form.get("title"),
         content: form.get("content"),
         category: form.get("category"),
-        imageUrl,
+        imageUrls,
+        fontSize: form.get("fontSize"),
+        lineHeight: form.get("lineHeight"),
+        textColor: form.get("textColor"),
       }),
     });
     const data = await response.json();
@@ -219,6 +229,16 @@ export default function CommunityHome({ user, content, isAdmin }: { user: User; 
     setPostOpen(false);
     toast.success("动态已提交，管理员审核通过后会公开显示");
   }
+
+  function moveGallery(post: Post, direction: number) {
+    const images = post.imageUrls.length ? post.imageUrls : post.imageUrl ? [post.imageUrl] : [];
+    if (images.length < 2) return;
+    const key = String(post.id);
+    setGalleryIndex((current) => ({...current,[key]:((current[key] ?? 0) + direction + images.length) % images.length}));
+  }
+
+  const textSizeClass: Record<string,string> = {sm:"text-sm",base:"text-base",lg:"text-lg",xl:"text-xl"};
+  const lineHeightClass: Record<string,string> = {compact:"leading-snug",normal:"leading-7",relaxed:"leading-8",loose:"leading-10"};
 
   async function submitActivity(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -328,14 +348,8 @@ export default function CommunityHome({ user, content, isAdmin }: { user: User; 
           {enabled("videoEnabled") && <div className="relative">
             <div className="absolute -left-8 top-8 h-40 w-40 rounded-full bg-[#33c6bc]/20 blur-3xl" />
             <div className="relative overflow-hidden rounded-[2rem] border-[8px] border-white bg-[#163f47] shadow-2xl shadow-[#1b6671]/20">
-              <div className="aspect-video">
-                <iframe
-                  className="h-full w-full"
-                  src={t("videoUrl")}
-                  title="宠物救助故事视频"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                />
+              <div className="aspect-video bg-[#e9f4f4]">
+                {t("heroMediaType") === "image" ? <img className="h-full w-full object-cover" src={t("heroMediaUrl") || t("videoUrl")} alt={t("videoTitle")} /> : t("heroMediaType") === "video" ? <video className="h-full w-full object-cover" src={t("heroMediaUrl")} controls playsInline preload="metadata" /> : <iframe className="h-full w-full" src={t("heroMediaUrl") || t("videoUrl")} title="宠物救助故事视频" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />}
               </div>
               <div className="flex items-center justify-between bg-[#123d45] px-5 py-4 text-white">
                 <div>
@@ -373,22 +387,26 @@ export default function CommunityHome({ user, content, isAdmin }: { user: User; 
             ))}
           </div>
           <div className="mt-8 columns-1 gap-5 sm:columns-2 lg:columns-3">
-            {visiblePosts.map((post, index) => (
-              <article key={post.id} className="group mb-5 break-inside-avoid overflow-hidden rounded-[1.4rem] border border-[#deeaec] bg-white shadow-[0_10px_35px_rgba(24,85,94,0.07)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_20px_45px_rgba(24,85,94,0.12)]">
-                {post.imageUrl && (
-                  <img src={post.imageUrl} alt={post.title} referrerPolicy="no-referrer" className={`w-full object-cover transition duration-500 group-hover:scale-[1.02] ${index % 3 === 1 ? "h-72" : "h-56"}`} />
-                )}
+            {visiblePosts.map((post, index) => {
+              const images = post.imageUrls?.length ? post.imageUrls : post.imageUrl ? [post.imageUrl] : [];
+              const current = galleryIndex[String(post.id)] ?? 0;
+              return (
+              <article key={post.id} onClick={() => setSelectedPost(post)} className="group mb-5 cursor-pointer break-inside-avoid overflow-hidden rounded-[1.4rem] border border-[#deeaec] bg-white shadow-[0_10px_35px_rgba(24,85,94,0.07)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_20px_45px_rgba(24,85,94,0.12)]">
+                {images.length > 0 && <div className="relative overflow-hidden">
+                  <img src={images[current]} alt={`${post.title} 第 ${current + 1} 张`} referrerPolicy="no-referrer" className={`w-full object-cover transition duration-500 group-hover:scale-[1.02] ${index % 3 === 1 ? "h-72" : "h-56"}`} />
+                  {images.length > 1 && <><button type="button" onClick={(e) => {e.stopPropagation();moveGallery(post,-1);}} className="absolute left-3 top-1/2 grid size-9 -translate-y-1/2 place-items-center rounded-full bg-white/90 opacity-0 shadow transition group-hover:opacity-100" aria-label="上一张"><ChevronLeft className="size-5" /></button><button type="button" onClick={(e) => {e.stopPropagation();moveGallery(post,1);}} className="absolute right-3 top-1/2 grid size-9 -translate-y-1/2 place-items-center rounded-full bg-white/90 opacity-0 shadow transition group-hover:opacity-100" aria-label="下一张"><ChevronRight className="size-5" /></button><span className="absolute bottom-3 right-3 rounded-full bg-black/55 px-2.5 py-1 text-xs text-white">{current + 1}/{images.length}</span></>}
+                </div>}
                 <div className="p-5">
                   <Badge variant="secondary" className="mb-3 rounded-full bg-[#e4f6f3] text-[#087b7b]">{post.category}</Badge>
                   <h3 className="text-xl font-bold leading-snug">{post.title}</h3>
-                  <p className="mt-3 line-clamp-3 text-[15px] leading-7 text-[#61777d]">{post.content}</p>
+                  <p className={`mt-3 line-clamp-3 ${textSizeClass[post.fontSize] ?? "text-base"} ${lineHeightClass[post.lineHeight] ?? "leading-7"}`} style={{color:post.textColor}}>{post.content}</p>
                   <div className="mt-5 flex items-center justify-between border-t border-[#edf2f3] pt-4">
                     <div className="flex items-center gap-2 text-sm">
                       <span className="grid size-8 place-items-center rounded-full bg-gradient-to-br from-[#b8eee7] to-[#cde7f3] font-bold text-[#087b7b]">{post.authorName.slice(0, 1)}</span>
                       <span className="max-w-36 truncate font-medium">{post.authorName}</span>
                     </div>
                     <div className="flex items-center gap-3 text-[#7a8e93]">
-                      <button onClick={() => setLiked((current) => { const next = new Set(current); if (next.has(post.id)) next.delete(post.id); else next.add(post.id); return next; })} className={liked.has(post.id) ? "text-rose-500" : ""} aria-label="点赞">
+                      <button onClick={(e) => {e.stopPropagation();setLiked((current) => { const next = new Set(current); if (next.has(post.id)) next.delete(post.id); else next.add(post.id); return next; });}} className={liked.has(post.id) ? "text-rose-500" : ""} aria-label="点赞">
                         <Heart className={`size-5 ${liked.has(post.id) ? "fill-current" : ""}`} />
                       </button>
                       <MessageCircle className="size-5" />
@@ -396,7 +414,7 @@ export default function CommunityHome({ user, content, isAdmin }: { user: User; 
                   </div>
                 </div>
               </article>
-            ))}
+            )})}
           </div>
         </div>
       </section>}
@@ -494,16 +512,30 @@ export default function CommunityHome({ user, content, isAdmin }: { user: User; 
           <DialogHeader><DialogTitle>发布救助动态</DialogTitle><DialogDescription>分享真实进展，帮助更多人了解和参与。</DialogDescription></DialogHeader>
           <form onSubmit={submitPost} className="space-y-4">
             <Input name="title" required maxLength={80} placeholder="给动态起个标题" />
-            <Textarea name="content" required maxLength={800} rows={5} placeholder="发生了什么？目前需要哪些帮助？" />
+            <Textarea name="content" required maxLength={6000} rows={7} placeholder="发生了什么？目前需要哪些帮助？" />
+            <div className="grid grid-cols-3 gap-3">
+              <label className="text-xs font-medium text-[#4e7076]">字号<select name="fontSize" defaultValue="base" className="mt-1 h-10 w-full rounded-md border bg-white px-2 text-sm"><option value="sm">小</option><option value="base">标准</option><option value="lg">大</option><option value="xl">特大</option></select></label>
+              <label className="text-xs font-medium text-[#4e7076]">行距<select name="lineHeight" defaultValue="normal" className="mt-1 h-10 w-full rounded-md border bg-white px-2 text-sm"><option value="compact">紧凑</option><option value="normal">标准</option><option value="relaxed">宽松</option><option value="loose">超宽</option></select></label>
+              <label className="text-xs font-medium text-[#4e7076]">文字颜色<Input name="textColor" type="color" defaultValue="#61777d" className="mt-1 h-10 w-full cursor-pointer p-1" /></label>
+            </div>
             <label className="block rounded-xl border border-dashed border-[#9dcfce] bg-[#f2fbfa] p-4 text-sm text-[#4e7076]">
-              <span className="mb-2 block font-medium text-[#176b6d]">上传现场图片（选填，最大 8MB）</span>
-              <Input name="imageFile" type="file" accept="image/jpeg,image/png,image/webp,image/gif" className="bg-white" />
+              <span className="mb-2 block font-medium text-[#176b6d]">上传现场图片（可多选、张数不限，单张最大 8MB）</span>
+              <Input name="imageFiles" type="file" multiple accept="image/jpeg,image/png,image/webp,image/gif" className="bg-white" />
             </label>
             <select name="category" className="h-10 w-full rounded-md border border-input bg-white px-3 text-sm">
               <option>救助日记</option><option>领养故事</option><option>救助经验</option><option>活动现场</option>
             </select>
             <Button type="submit" disabled={uploading} className="w-full bg-[#008f91] hover:bg-[#007b7d]">{uploading ? "正在上传…" : "提交审核"}</Button>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={Boolean(selectedPost)} onOpenChange={(open) => !open && setSelectedPost(null)}>
+        <DialogContent className="max-h-[92vh] max-w-3xl overflow-y-auto rounded-[1.5rem] p-0">
+          {selectedPost && (() => { const images=selectedPost.imageUrls?.length?selectedPost.imageUrls:selectedPost.imageUrl?[selectedPost.imageUrl]:[]; const current=galleryIndex[String(selectedPost.id)]??0; return <>
+            {images.length>0 && <div className="group relative aspect-[16/10] overflow-hidden rounded-t-[1.5rem] bg-[#eaf4f4]"><img src={images[current]} alt={`${selectedPost.title} 第 ${current+1} 张`} className="h-full w-full object-contain" />{images.length>1&&<><button onClick={()=>moveGallery(selectedPost,-1)} className="absolute left-4 top-1/2 grid size-11 -translate-y-1/2 place-items-center rounded-full bg-white/90 shadow" aria-label="上一张"><ChevronLeft /></button><button onClick={()=>moveGallery(selectedPost,1)} className="absolute right-4 top-1/2 grid size-11 -translate-y-1/2 place-items-center rounded-full bg-white/90 shadow" aria-label="下一张"><ChevronRight /></button><span className="absolute bottom-4 right-4 rounded-full bg-black/60 px-3 py-1 text-sm text-white">{current+1}/{images.length}</span></>}</div>}
+            <div className="p-6 sm:p-8"><Badge className="bg-[#e4f6f3] text-[#087b7b]">{selectedPost.category}</Badge><DialogHeader className="mt-4 text-left"><DialogTitle className="text-2xl">{selectedPost.title}</DialogTitle><DialogDescription>{selectedPost.authorName} · {selectedPost.createdAt}</DialogDescription></DialogHeader><p className={`mt-6 whitespace-pre-wrap ${textSizeClass[selectedPost.fontSize]??"text-base"} ${lineHeightClass[selectedPost.lineHeight]??"leading-7"}`} style={{color:selectedPost.textColor}}>{selectedPost.content}</p>{images.length>1&&<div className="mt-6 flex gap-2 overflow-x-auto pb-2">{images.map((src,i)=><button key={`${src}-${i}`} onClick={()=>setGalleryIndex((v)=>({...v,[String(selectedPost.id)]:i}))} className={`h-16 w-20 shrink-0 overflow-hidden rounded-lg border-2 ${i===current?"border-[#008f91]":"border-transparent"}`}><img src={src} alt="" className="h-full w-full object-cover" /></button>)}</div>}</div>
+          </>;})()}
         </DialogContent>
       </Dialog>
 

@@ -27,6 +27,8 @@ export const DEFAULT_SITE_CONTENT: SiteContent = {
   stat3Label: "城市伙伴",
 
   videoEnabled: "true",
+  heroMediaType: "external",
+  heroMediaUrl: "https://www.youtube.com/embed/ObXjfWx-1vI",
   videoUrl: "https://www.youtube.com/embed/ObXjfWx-1vI",
   videoLabel: "本周救助纪录",
   videoTitle: "每一次伸手，都可能改变一个生命",
