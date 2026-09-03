@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
   CalendarDays,
+  CircleDollarSign,
   ChevronRight,
   Heart,
   LogOut,
@@ -23,10 +24,12 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast, Toaster } from "sonner";
 import { DEFAULT_SITE_CONTENT, type SiteContent } from "@/lib/site-content";
 
 type User = { displayName: string; email: string } | null;
+type Membership = { status: "pending_payment" | "active" | "refund_requested" | "refunded_closed"; fee_cents: number; phone_last4?: string | null } | null;
 type Post = {
   id: number | string;
   authorName: string;
@@ -92,6 +95,10 @@ export default function CommunityHome({ user, content, isAdmin }: { user: User; 
   const [authOpen, setAuthOpen] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [authSubmitting, setAuthSubmitting] = useState(false);
+  const [membershipOpen, setMembershipOpen] = useState(false);
+  const [membership, setMembership] = useState<Membership>(null);
+  const [acceptedMembershipTerms, setAcceptedMembershipTerms] = useState(false);
+  const [membershipSubmitting, setMembershipSubmitting] = useState(false);
 
   useEffect(() => {
     Promise.all([
@@ -103,6 +110,13 @@ export default function CommunityHome({ user, content, isAdmin }: { user: User; 
     }).catch(() => undefined);
   }, [featuredActivities, featuredPosts]);
 
+  useEffect(() => {
+    if (!user) return;
+    fetch("/api/membership").then((r) => r.ok ? r.json() : null).then((data) => {
+      if (data) setMembership(data.membership);
+    }).catch(() => undefined);
+  }, [user]);
+
   const visiblePosts = useMemo(
     () => filter === "全部" ? posts : posts.filter((post) => post.category === filter),
     [filter, posts],
@@ -112,6 +126,10 @@ export default function CommunityHome({ user, content, isAdmin }: { user: User; 
     if (!user) {
       setAuthMode("login");
       setAuthOpen(true);
+      return;
+    }
+    if (membership?.status !== "active") {
+      setMembershipOpen(true);
       return;
     }
     action();
@@ -133,6 +151,7 @@ export default function CommunityHome({ user, content, isAdmin }: { user: User; 
         email: form.get("email"),
         password: form.get("password"),
         displayName: form.get("displayName"),
+        phone: form.get("phone"),
       }),
     });
     const data = await response.json();
@@ -150,6 +169,21 @@ export default function CommunityHome({ user, content, isAdmin }: { user: User; 
   async function logout() {
     await fetch("/api/auth/logout", { method: "POST" });
     window.location.reload();
+  }
+
+  async function membershipAction(action: "create_order" | "request_refund") {
+    setMembershipSubmitting(true);
+    const response = await fetch("/api/membership", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action, acceptedTerms: acceptedMembershipTerms }),
+    });
+    const data = await response.json();
+    setMembershipSubmitting(false);
+    if (!response.ok) return toast.error(data.error ?? "操作失败");
+    toast.success(data.message);
+    const refreshed = await fetch("/api/membership").then((r) => r.json());
+    setMembership(refreshed.membership);
   }
 
   async function submitPost(event: FormEvent<HTMLFormElement>) {
@@ -229,10 +263,13 @@ export default function CommunityHome({ user, content, isAdmin }: { user: User; 
           <div className="hidden items-center gap-3 lg:flex">
             <Button variant="ghost" size="icon" className="rounded-full"><Search className="size-5" /></Button>
             {user ? (
+              <div className="flex items-center gap-2">
+              <Button variant="outline" onClick={() => setMembershipOpen(true)} className="rounded-full border-[#acd8d5] text-[#087f80]"><CircleDollarSign className="mr-1.5 size-4" />会员中心</Button>
               <div className="flex items-center gap-2 rounded-full bg-[#edf8f7] py-1.5 pl-2 pr-2 text-sm font-medium">
                 <span className="grid size-8 place-items-center rounded-full bg-[#0a9f9c] text-white">{user.displayName.slice(0, 1).toUpperCase()}</span>
                 {user.displayName}
                 <button onClick={logout} className="grid size-8 place-items-center rounded-full text-[#58747a] hover:bg-white hover:text-[#008f91]" aria-label="退出登录"><LogOut className="size-4" /></button>
+              </div>
               </div>
             ) : (
               <Button variant="ghost" onClick={() => openAuth("login")}>{t("navLogin")}</Button>
@@ -252,7 +289,7 @@ export default function CommunityHome({ user, content, isAdmin }: { user: User; 
               {enabled("communityEnabled") && <a href="#community" onClick={() => setMobileOpen(false)}>{t("navCommunity")}</a>}
               {enabled("activitiesEnabled") && <a href="#activities" onClick={() => setMobileOpen(false)}>{t("navActivities")}</a>}
               {enabled("aboutEnabled") && <a href="#about" onClick={() => setMobileOpen(false)}>{t("navAbout")}</a>}
-              {user ? <button className="text-left text-[#008f91]" onClick={logout}>{user.displayName} · 退出登录</button> : <button className="text-left text-[#008f91]" onClick={() => openAuth("login")}>{t("navLogin")} / {t("navRegister")}</button>}
+              {user ? <><button className="text-left font-semibold text-[#008f91]" onClick={() => { setMembershipOpen(true); setMobileOpen(false); }}>会员中心 · ¥398</button><button className="text-left text-[#58747a]" onClick={logout}>{user.displayName} · 退出登录</button></> : <button className="text-left text-[#008f91]" onClick={() => openAuth("login")}>{t("navLogin")} / {t("navRegister")}</button>}
               {isAdmin && <a className="font-semibold text-[#008f91]" href="/admin">{t("navAdmin")}</a>}
             </div>
           </nav>
@@ -473,8 +510,8 @@ export default function CommunityHome({ user, content, isAdmin }: { user: User; 
       <Dialog open={authOpen} onOpenChange={setAuthOpen}>
         <DialogContent className="max-w-md rounded-[1.5rem]">
           <DialogHeader>
-            <DialogTitle>{authMode === "login" ? "会员登录" : "免费注册会员"}</DialogTitle>
-            <DialogDescription>{authMode === "login" ? "登录后可以发布救助动态、发起活动和报名参与。" : "加入伴宠公益，一起帮助更多流浪动物。"}</DialogDescription>
+            <DialogTitle>{authMode === "login" ? "会员登录" : "注册会员账号"}</DialogTitle>
+            <DialogDescription>{authMode === "login" ? "登录后可以管理会员资格和参与公益社区。" : "注册账号后需支付 398 元会员费方可开通会员。"}</DialogDescription>
           </DialogHeader>
           <div className="grid grid-cols-2 rounded-xl bg-[#edf7f7] p-1">
             <button type="button" onClick={() => setAuthMode("login")} className={`rounded-lg px-4 py-2.5 text-sm font-medium ${authMode === "login" ? "bg-white text-[#087f80] shadow-sm" : "text-[#60777d]"}`}>登录</button>
@@ -482,11 +519,33 @@ export default function CommunityHome({ user, content, isAdmin }: { user: User; 
           </div>
           <form onSubmit={submitAuth} className="space-y-4">
             {authMode === "register" && <Input name="displayName" required minLength={1} maxLength={40} autoComplete="nickname" placeholder="你的昵称" />}
+            {authMode === "register" && <Input name="phone" type="tel" required autoComplete="tel" placeholder="手机号（中国大陆可直接输入 11 位）" />}
             <Input name="email" type="email" required autoComplete="email" placeholder="邮箱地址" />
             <Input name="password" type="password" required minLength={8} autoComplete={authMode === "login" ? "current-password" : "new-password"} placeholder="密码（至少 8 位）" />
             <Button type="submit" disabled={authSubmitting} className="w-full bg-[#008f91] hover:bg-[#007b7d]">{authSubmitting ? "请稍候…" : authMode === "login" ? "登录" : "注册并验证邮箱"}</Button>
           </form>
-          <p className="text-center text-xs leading-5 text-[#71858b]">注册即表示你同意遵守社区规则，不发布虚假救助或交易信息。</p>
+          <p className="text-center text-xs leading-5 text-[#71858b]">会员费为 398 元，可申请全额退款；退款完成后账号将注销，该手机号永久无法再次注册。</p>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={membershipOpen} onOpenChange={setMembershipOpen}>
+        <DialogContent className="max-w-md rounded-[1.5rem]">
+          <DialogHeader><DialogTitle>伴宠公益会员</DialogTitle><DialogDescription>一次性会员费 ¥398，支持申请全额退款。</DialogDescription></DialogHeader>
+          <div className="rounded-2xl bg-gradient-to-br from-[#e7f9f6] to-[#e8f3fb] p-5">
+            <div className="flex items-end justify-between"><span className="text-sm text-[#56767b]">会员费用</span><strong className="text-4xl text-[#087f80]">¥398</strong></div>
+            <div className="mt-4 flex items-center justify-between border-t border-[#bddfdd] pt-4 text-sm"><span>当前状态</span><Badge className="bg-white text-[#087f80] hover:bg-white">{membership?.status === "active" ? "会员已开通" : membership?.status === "refund_requested" ? "退款处理中" : membership?.status === "refunded_closed" ? "已退款注销" : "待支付"}</Badge></div>
+            {membership?.phone_last4 && <p className="mt-2 text-xs text-[#60777d]">绑定手机号：尾号 {membership.phone_last4}</p>}
+          </div>
+          {(!membership || membership.status === "pending_payment") && <>
+            <label className="flex items-start gap-3 rounded-xl border border-[#d5e7e7] p-4 text-sm leading-6 text-[#49686e]">
+              <Checkbox checked={acceptedMembershipTerms} onCheckedChange={(value) => setAcceptedMembershipTerms(value === true)} className="mt-1" />
+              <span>我已确认：支付 398 元开通会员；可申请全额退款；退款完成后账号注销，当前手机号永久不能再次注册。</span>
+            </label>
+            <Button disabled={!acceptedMembershipTerms || membershipSubmitting} onClick={() => membershipAction("create_order")} className="w-full bg-[#008f91] hover:bg-[#007b7d]">{membershipSubmitting ? "正在创建订单…" : "创建 ¥398 会员订单"}</Button>
+            <p className="text-center text-xs leading-5 text-[#71858b]">支付渠道正在接入，当前创建订单不会扣款。</p>
+          </>}
+          {membership?.status === "active" && <Button variant="outline" disabled={membershipSubmitting} onClick={() => membershipAction("request_refund")} className="w-full border-red-200 text-red-600 hover:bg-red-50">申请全额退款并注销账号</Button>}
+          {membership?.status === "refund_requested" && <p className="rounded-xl bg-amber-50 p-4 text-sm leading-6 text-amber-800">退款申请已提交。退款完成后账号会被注销，手机号将永久禁用。</p>}
         </DialogContent>
       </Dialog>
 

@@ -20,6 +20,10 @@ export function getSupabaseConfig() {
   return { url: url.replace(/\/$/, ""), publishableKey };
 }
 
+export async function getSupabaseAccessToken() {
+  return (await cookies()).get(ACCESS_COOKIE)?.value ?? null;
+}
+
 export async function getSupabaseUser(): Promise<AppUser | null> {
   try {
     const token = (await cookies()).get(ACCESS_COOKIE)?.value;
@@ -38,6 +42,20 @@ export async function getSupabaseUser(): Promise<AppUser | null> {
   } catch {
     return null;
   }
+}
+
+export async function hasActiveSupabaseMembership(user: AppUser) {
+  if (user.source !== "supabase") return true;
+  const token = await getSupabaseAccessToken();
+  if (!token) return false;
+  const { url, publishableKey } = getSupabaseConfig();
+  const response = await fetch(`${url}/rest/v1/member_accounts?select=status&user_id=eq.${user.id}&status=eq.active`, {
+    headers: { apikey: publishableKey, Authorization: `Bearer ${token}` },
+    cache: "no-store",
+  });
+  if (!response.ok) return false;
+  const rows = await response.json() as { status: string }[];
+  return rows.length === 1;
 }
 
 export function setAuthCookies(response: NextResponse, data: Record<string, unknown>) {

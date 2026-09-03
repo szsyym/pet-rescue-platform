@@ -3,6 +3,7 @@ import { getDb } from "@/db";
 import { activities, activityMembers } from "@/db/schema";
 import { getCurrentUser } from "@/lib/current-user";
 import { ensureMember } from "@/lib/members";
+import { hasActiveSupabaseMembership } from "@/lib/supabase-auth";
 
 export async function GET() {
   try {
@@ -32,6 +33,7 @@ export async function GET() {
 export async function POST(request: Request) {
   const user = await getCurrentUser();
   if (!user) return Response.json({ error: "请先登录后再发起活动" }, { status: 401 });
+  if (!await hasActiveSupabaseMembership(user)) return Response.json({ error: "请先支付 398 元开通会员" }, { status: 403 });
   const member = await ensureMember(user);
   if (member.status === "suspended") return Response.json({ error: "账号已暂停，暂时无法发起活动" }, { status: 403 });
   const body = await request.json() as Record<string, string>;

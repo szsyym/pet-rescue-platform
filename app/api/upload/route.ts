@@ -1,6 +1,7 @@
 import { env } from "cloudflare:workers";
 import { getCurrentUser } from "@/lib/current-user";
 import { ensureMember } from "@/lib/members";
+import { hasActiveSupabaseMembership } from "@/lib/supabase-auth";
 
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 const allowedTypes: Record<string, string> = {
@@ -13,6 +14,7 @@ const allowedTypes: Record<string, string> = {
 export async function POST(request: Request) {
   const user = await getCurrentUser();
   if (!user) return Response.json({ error: "请先登录后再上传图片" }, { status: 401 });
+  if (!await hasActiveSupabaseMembership(user)) return Response.json({ error: "请先支付 398 元开通会员" }, { status: 403 });
   const member = await ensureMember(user);
   if (member.status === "suspended") {
     return Response.json({ error: "账号已暂停，暂时无法上传" }, { status: 403 });
